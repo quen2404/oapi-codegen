@@ -366,9 +366,12 @@ func GenFieldsFromProperties(props []Property) []string {
 		}
 		field += fmt.Sprintf("    %s %s", p.GoFieldName(), p.GoTypeDef())
 		if p.Required || p.Nullable {
-			field += fmt.Sprintf(" `json:\"%s\" validate:\"%s\"`", p.JsonFieldName, p.Validator)
+			field += fmt.Sprintf(" `json:\"%s\"", p.JsonFieldName)
 		} else {
-			field += fmt.Sprintf(" `json:\"%s,omitempty\" validate:\"%s\"`", p.JsonFieldName, p.Validator)
+			field += fmt.Sprintf(" `json:\"%s,omitempty\"", p.JsonFieldName)
+		}
+		if p.Validator != "" {
+			field += fmt.Sprintf(" validate:\"%s\"`", p.Validator)
 		}
 		fields = append(fields, field)
 	}
