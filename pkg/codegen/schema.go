@@ -60,6 +60,7 @@ type Property struct {
 	Schema        Schema
 	Required      bool
 	Nullable      bool
+	Validator     string
 }
 
 func (p Property) GoFieldName() string {
@@ -83,6 +84,43 @@ type TypeDefinition struct {
 
 func PropertiesEqual(a, b Property) bool {
 	return a.JsonFieldName == b.JsonFieldName && a.Schema.TypeDecl() == b.Schema.TypeDecl() && a.Required == b.Required
+}
+
+func validators(p *openapi3.Schema, required bool) []string {
+	validators := make([]string, 0)
+	if required {
+		validators = append(validators, "required")
+	}
+	if p.Min != nil {
+		validators = append(validators, fmt.Sprintf("min=%f", *p.Min))
+	}
+	if p.Max != nil {
+		validators = append(validators, fmt.Sprintf("max=%f", *p.Max))
+	}
+	if p.MinLength != 0 {
+		validators = append(validators, fmt.Sprintf("min=%d", p.MinLength))
+	}
+	if p.MaxLength != nil {
+		validators = append(validators, fmt.Sprintf("max=%d", *p.MaxLength))
+	}
+	if p.MinItems != 0 {
+		validators = append(validators, fmt.Sprintf("min=%d", p.MinItems))
+	}
+	if p.MaxItems != nil {
+		validators = append(validators, fmt.Sprintf("max=%d", *p.MaxItems))
+	}
+	if p.UniqueItems {
+		validators = append(validators, "unique")
+	}
+	if p.Enum != nil {
+		values := make([]string, len(p.Enum))
+		for _, val := range p.Enum {
+			values = append(values, fmt.Sprintf("%v", val))
+		}
+		enum := strings.Join(values, " ")
+		validators = append(validators, fmt.Sprintf("oneof=%s", enum))
+	}
+	return validators
 }
 
 func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
@@ -205,6 +243,7 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 					Required:      required,
 					Description:   description,
 					Nullable:      p.Value.Nullable,
+					Validator:     strings.Join(validators(p.Value, required), ","),
 				}
 				outSchema.Properties = append(outSchema.Properties, prop)
 			}
@@ -327,9 +366,9 @@ func GenFieldsFromProperties(props []Property) []string {
 		}
 		field += fmt.Sprintf("    %s %s", p.GoFieldName(), p.GoTypeDef())
 		if p.Required || p.Nullable {
-			field += fmt.Sprintf(" `json:\"%s\"`", p.JsonFieldName)
+			field += fmt.Sprintf(" `json:\"%s\" validate:\"%s\"`", p.JsonFieldName, p.Validator)
 		} else {
-			field += fmt.Sprintf(" `json:\"%s,omitempty\"`", p.JsonFieldName)
+			field += fmt.Sprintf(" `json:\"%s,omitempty\" validate:\"%s\"`", p.JsonFieldName, p.Validator)
 		}
 		fields = append(fields, field)
 	}
